@@ -10,11 +10,14 @@ from typing import List, Optional, Sequence
 
 from .types import AddrInfoType
 
+SO_BINDTODEVICE = 25
+
 
 async def start_connection(
     addr_infos: Sequence[AddrInfoType],
     *,
     local_addr_infos: Optional[Sequence[AddrInfoType]] = None,
+    device: Optional[str] = None,
     happy_eyeballs_delay: Optional[float] = None,
     interleave: Optional[int] = None,
     loop: Optional[asyncio.AbstractEventLoop] = None,
@@ -68,7 +71,7 @@ async def start_connection(
         for addrinfo in addr_infos:
             try:
                 sock = await _connect_sock(
-                    current_loop, exceptions, addrinfo, local_addr_infos
+                    current_loop, exceptions, addrinfo, local_addr_infos, device
                 )
                 break
             except OSError:
@@ -77,7 +80,12 @@ async def start_connection(
         sock, _, _ = await staggered.staggered_race(
             (
                 functools.partial(
-                    _connect_sock, current_loop, exceptions, addrinfo, local_addr_infos
+                    _connect_sock,
+                    current_loop,
+                    exceptions,
+                    addrinfo,
+                    local_addr_infos,
+                    device,
                 )
                 for addrinfo in addr_infos
             ),
@@ -114,6 +122,7 @@ async def _connect_sock(
     exceptions: List[List[Exception]],
     addr_info: AddrInfoType,
     local_addr_infos: Optional[Sequence[AddrInfoType]] = None,
+    device: Optional[str] = None,
 ) -> socket.socket:
     """Create, bind and connect one socket."""
     my_exceptions: list[Exception] = []
@@ -123,6 +132,8 @@ async def _connect_sock(
     try:
         sock = socket.socket(family=family, type=type_, proto=proto)
         sock.setblocking(False)
+        if device is not None:
+            sock.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE, device.encode())
         if local_addr_infos is not None:
             for lfamily, _, _, _, laddr in local_addr_infos:
                 # skip local addresses of different family

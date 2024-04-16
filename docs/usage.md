@@ -14,6 +14,10 @@ addr_infos = await loop.getaddrinfo("example.org", 80)
 socket = await aiohappyeyeballs.start_connection(addr_infos)
 socket = await aiohappyeyeballs.start_connection(addr_infos, local_addr_infos=local_addr_infos, happy_eyeballs_delay=0.2)
 
+# Specify a device to use for the connection.
+# The device option is only effective on Linux and requires appropriate permissions.
+socket = await aiohappyeyeballs.start_connection(addr_infos, device="eth0")
+
 transport, protocol = await loop.create_connection(
     MyProtocol, sock=socket, ...)
 
